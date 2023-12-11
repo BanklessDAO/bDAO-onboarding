@@ -6,11 +6,10 @@ import { useTranslation } from 'react-i18next'
 import { LessonType } from 'entities/lesson'
 import MintBadge from 'components/MintBadge'
 import { IS_WHITELABEL, TWITTER_ACCOUNT, DOMAIN_URL } from 'constants/index'
-import { BADGE_OPENSEA_URL } from 'constants/badges'
+import { BADGE_OPENSEA_URL, BADGE_TO_KUDOS_IDS } from 'constants/badges'
 import ExternalLink from 'components/ExternalLink'
 import Helper from 'components/Helper'
 import NFT from 'components/NFT'
-import { BADGE_TO_KUDOS_IDS } from 'pages/api/badges/[...slug]'
 
 const Badge = ({
   lesson,
@@ -126,7 +125,7 @@ Join the journey and level up your #web3 knowledge! 👨‍🚀🚀`
                     w="100%"
                     borderBottomRadius="0"
                     leftIcon={
-                      <ChakraImage width="24px" src="/images/Twitter.svg" />
+                      <ChakraImage width="20px" src="/images/TwitterX.svg" />
                     }
                   >
                     {t('Share on Twitter')}

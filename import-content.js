@@ -126,6 +126,7 @@ const KEY_MATCHING = {
   'What will you be able to do after this lesson?': 'learningActions',
   'Landing page copy': 'marketingDescription',
   'Badge ID': 'badgeId',
+  'Collectible ID': 'collectibleId',
   'Duration in minutes': 'duration',
   'What will you learn from this?': 'learnings',
   Difficulty: 'difficulty',
@@ -289,6 +290,7 @@ axios
       if (lesson.description === undefined) lesson.description = ''
       if (lesson.socialImageLink === undefined) delete lesson.socialImageLink
       if (lesson.badgeId === undefined) lesson.badgeId = null
+      if (lesson.collectibleId === undefined) delete lesson.collectibleId
       if (lesson.badgeImageLink === undefined) lesson.badgeImageLink = null
       if (lesson.lessonCollectedImageLink === undefined) delete lesson.lessonCollectedImageLink
       if (lesson.lessonCollectibleVideo === undefined) delete lesson.lessonCollectibleVideo
@@ -375,11 +377,11 @@ axios
 
                 if (lesson.articleContent.includes('\n\n\n---\n\n')) {
                   const articleContentArray = lesson.articleContent.split('\n\n\n---\n\n')
-                  if (articleContentArray.length && articleContentArray[articleContentArray.length - 1].includes('Explore more lessons')) {
+                  if (articleContentArray?.length && articleContentArray[articleContentArray?.length - 1].includes('Explore more lessons')) {
                     articleContentArray.pop()
                     lesson.articleContent = articleContentArray.join('\n\n\n---\n\n')
                   }
-                  if (articleContentArray.length && articleContentArray[articleContentArray.length - 1].includes('financial or tax advice')) {
+                  if (articleContentArray?.length && articleContentArray[articleContentArray?.length - 1].includes('financial or tax advice')) {
                     articleContentArray.pop()
                     lesson.articleContent = articleContentArray.join('\n\n\n---\n\n')
                   }
@@ -547,7 +549,7 @@ axios
               const blockquotes = quizDiv.window.document.querySelectorAll('blockquote')
               const labels = quizDiv.window.document.querySelectorAll('.checklist label')
 
-              for (let i = 0; i < checkboxes.length; i++) {
+              for (let i = 0; i < checkboxes?.length; i++) {
                 const nb = i + 1
                 const checkbox = checkboxes[i]
                 const blockquote = blockquotes[i]
@@ -563,7 +565,7 @@ axios
                 const isChecked = checkbox?.checked
                 if (isChecked) slide.quiz.rightAnswerNumber = nb
               }
-              if (slide.quiz.feedback.length === 0) delete slide.quiz.feedback
+              if (slide.quiz.feedback?.length === 0) delete slide.quiz.feedback
               if (!slide.quiz.rightAnswerNumber && lesson.slug !== 'bankless-archetypes')
                 throw new Error(
                   `missing right answer, please check ${POTION_API}/html?id=${notion.id}`
@@ -700,12 +702,14 @@ axios
               lessonContentMD = slides.join("")
 
               // HACK: replace image
-              const imageRegex = /!\[.*?\]\((.*?)\)/g;
+              const imageRegex = /!\[.*?\]\(([^)]+)\)/g
+              let matches = []
               let match
-              let i = 0
-              while ((match = imageRegex.exec(lessonContentMD)) !== null) {
-                lessonContentMD = lessonContentMD.replaceAll(match[1], `https://app.banklessacademy.com${lesson.imageLinks[i]}`)
-                i++
+              while ((match = imageRegex.exec(lessonContentMD)) !== null && matches.length < lesson.imageLinks.length) {
+                matches.push(match[1])
+              }
+              for (let i = 0; i < matches.length; i++) {
+                lessonContentMD = lessonContentMD.replace(matches[i], `https://app.banklessacademy.com${lesson.imageLinks[i]}`)
               }
               // write/update file
               const lessonPath = `translation/lesson/en/${lesson.slug}.md`

@@ -26,6 +26,7 @@ import { NETWORKS } from 'constants/networks'
 import UDPolygonABI from 'abis/UDPolygon.json'
 import UDABI from 'abis/UD.json'
 import { LessonType } from 'entities/lesson'
+import { UserStatsType } from 'entities/user'
 
 declare global {
   interface Window {
@@ -232,8 +233,8 @@ export async function validateOnchainQuest(
           }
         }
       }
-      console.log('checks validated (3)', check.length)
-      return check.length === 3
+      console.log('checks validated (3)', check?.length)
+      return check?.length === 3
     }
     else if (quest === 'DecentralizedExchanges') {
       const check = []
@@ -277,8 +278,8 @@ export async function validateOnchainQuest(
           }
         }
       }
-      console.log('checks validated (3)', check.length)
-      return check.length === 3
+      console.log('checks validated (3)', check?.length)
+      return check?.length === 3
     }
     else if (quest === 'Layer2Blockchains') {
       const optimism: Network = {
@@ -364,7 +365,7 @@ const withMixpanel = {
       }
     }
     const embed = localStorage.getItem('embed')
-    if (embed && embed.length) {
+    if (embed && embed?.length) {
       props.embed = embed
     }
     const i18nextLng = localStorage.getItem('i18nextLng')
@@ -425,7 +426,7 @@ export async function api(
   }
   const embed =
     typeof localStorage !== 'undefined' ? localStorage.getItem('embed') : null
-  if (embed && embed.length) {
+  if (embed && embed?.length) {
     data.embed = embed
   }
   const response = await fetch(url, {
@@ -642,4 +643,12 @@ export const scrollTop = () => {
 
 export const lessonLink = (lesson: LessonType) => {
   return `${DOMAIN_URL}/lessons/${lesson.slug}`
+}
+
+export function calculateExplorerScore(stats: UserStatsType) {
+  return 3 * (stats?.datadisks?.length || 0) +
+    (stats?.handbooks?.length || 0) +
+    (stats?.badges || 0) +
+    (Object.keys(stats?.donations || {})?.length || 0) +
+    (stats?.valid_stamps?.length || 0)
 }

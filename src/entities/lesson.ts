@@ -9,6 +9,7 @@ export interface LessonType {
   slug: string
   notionId: string
   badgeId?: number
+  collectibleId?: string
   description: string
   languages?: LanguageType[]
   lessonWriters?: string
@@ -51,6 +52,7 @@ export interface LessonType {
   nftGatingLink?: string
   nftGatingCTA?: string
   lang?: LanguageType
+  keywords?: string[]
   slides?: {
     type: SlideType
     title: string

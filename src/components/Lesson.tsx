@@ -36,10 +36,16 @@ import { QuestType } from 'components/Quest/QuestComponent'
 import NFT from 'components/NFT'
 import Keyword from 'components/Keyword'
 import EditContentModal from 'components/EditContentModal'
+import Helper from 'components/Helper'
 
-const Slide = styled(Card)<{ issmallscreen?: string; slidetype: SlideType }>`
+const Slide = styled(Card)<{
+  issmallscreen?: string
+  slidetype: SlideType
+  ispreview?: string
+}>`
   border-radius: 0.5rem;
   ${(props) => props.issmallscreen === 'true' && 'display: contents;'};
+  ${(props) => props?.ispreview === 'true' && '.is-missing : {color:red}'};
   h1 {
     margin-top: 1em;
     font-size: var(--chakra-fontSizes-2xl);
@@ -128,6 +134,15 @@ const Slide = styled(Card)<{ issmallscreen?: string; slidetype: SlideType }>`
   }
 `
 
+const StyledKeywords = styled(Box)`
+  span.keyword {
+    cursor: help;
+    border-bottom: 1px dashed #e5afff;
+    color: #e5afff;
+    display: inline-block !important;
+  }
+`
+
 const Answers = styled(Box)`
   display: flex;
   justify-content: center;
@@ -172,6 +187,17 @@ const SlideNav = styled(Box)<{ issmallscreen?: string }>`
       `};
 `
 
+function countWords(st) {
+  let s
+  s = st?.replace(/(^\s*)|(\s*$)/gi, '') //exclude  start and end white-space
+  s = s?.replace(/[ ]{2,}/gi, ' ') //2 or more space to 1
+  s = s?.replace(/\n /, '\n') // exclude newline with a start spacing
+  return s?.split(' ').filter(function (str) {
+    return str != ''
+  }).length
+  //return s.split(' ').filter(String).length; - this can also be used
+}
+
 const Lesson = ({
   lesson,
   extraKeywords,
@@ -184,7 +210,7 @@ const Lesson = ({
   Quest?: QuestType
 }): React.ReactElement => {
   const { t, i18n } = useTranslation()
-  const numberOfSlides = lesson.slides.length
+  const numberOfSlides = lesson.slides?.length
   // HACK: when reducing the number of slides in a lesson
   if (
     parseInt(localStorage.getItem(lesson.slug) || '0') + 1 >=
@@ -326,9 +352,11 @@ const Lesson = ({
           //   document.location.href = lesson.endOfLessonRedirect
         }
       } else {
-        // defaut: go back to lessons
-        if (IS_WHITELABEL) router.push('/')
-        else router.push('/lessons')
+        if (IS_WHITELABEL) closeLesson()
+        else {
+          // defaut: go back to lessons
+          router.push('/lessons')
+        }
       }
     }
     setSelectedAnswerNumber(null)
@@ -458,7 +486,7 @@ const Lesson = ({
       return definition?.length ? (
         <Keyword definition={definition} keyword={keyword} />
       ) : (
-        <>{keyword}</>
+        <span className="is-missing">{keyword}</span>
       )
     }
   }
@@ -485,6 +513,7 @@ const Lesson = ({
       pb={2}
       mt={6}
       issmallscreen={isSmallScreen.toString()}
+      ispreview={lesson?.isPreview?.toString()}
       key={`slide-${currentSlide}`}
       slidetype={slide.type}
     >
@@ -572,7 +601,7 @@ const Lesson = ({
                         : selectedAnswerNumber === n
                         ? 'WRONG'
                         : 'UNSELECTED'
-                      if (slide.quiz.answers.length >= n)
+                      if (slide.quiz.answers?.length >= n)
                         return (
                           <QuizAnswer
                             ref={(el) => (answerRef.current[n] = el)}
@@ -670,6 +699,7 @@ const Lesson = ({
           {
             /* lesson.isCommentsEnabled && */
             !isMobile &&
+              !lesson?.isPreview &&
               !IS_WHITELABEL &&
               (slide.type === 'LEARN' ||
                 (slide.type === 'QUIZ' && answerIsCorrect)) &&
@@ -679,6 +709,34 @@ const Lesson = ({
                 </>
               )
           }
+          {lesson?.isPreview && (
+            <Box position="relative">
+              DEBUG
+              <Helper
+                fullscreen
+                title="DEBUG"
+                definition={
+                  <Box>
+                    <StyledKeywords>
+                      Keyword list:{' '}
+                      {ReactHtmlParser(
+                        lesson.keywords
+                          .map((keyword) => `<code>${keyword}</code>`)
+                          .join(', '),
+                        { transform }
+                      )}
+                    </StyledKeywords>
+                    Number of words:{' '}
+                    {lesson.slides
+                      .map((slide) => countWords(slide.content))
+                      .reduce((a, b) => {
+                        return a + b
+                      }, 0)}
+                  </Box>
+                }
+              />
+            </Box>
+          )}
           {slide.type === 'QUEST' && address && (
             <ExternalLink href={'/report-an-issue'} alt={t('Report an Issue')}>
               <Button
