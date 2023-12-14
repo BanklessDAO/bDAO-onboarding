@@ -30,7 +30,7 @@ export const PopoverTrigger: React.FC<{ children: React.ReactNode }> =
   OrigPopoverTrigger
 
 import ExternalLink from 'components/ExternalLink'
-import { SIWE_ENABLED } from 'constants/index'
+import { IS_WALLET_DISABLED, SIWE_ENABLED } from 'constants/index'
 import { BADGE_IDS } from 'constants/badges'
 import { getUD, getLensProfile, shortenAddress, api } from 'utils'
 import Badges from 'components/Badges'
@@ -179,7 +179,7 @@ const ConnectWalletButton = ({
 
   function refreshBadges() {
     if (address)
-      axios.get(`/api/user/${address}`).then((res) => {
+      axios.get(`/api/user/${address}?badges=true`).then((res) => {
         const badgeTokenIds = res?.data?.badgeTokenIds
         if (Array.isArray(badgeTokenIds)) {
           const badgesMinted = BADGE_IDS.filter((badgeId) =>
@@ -312,6 +312,8 @@ const ConnectWalletButton = ({
     }
   }, [refreshBadgesLS])
 
+  if (IS_WALLET_DISABLED) return null
+
   return (
     <>
       {isConnected && !waitingForSIWE && name ? (
@@ -328,7 +330,7 @@ const ConnectWalletButton = ({
               size={isSmallScreen ? 'sm' : 'md'}
               leftIcon={
                 <Image
-                  src={avatar || '/images/default_avatar.png'}
+                  src={avatar || '/images/explorer_avatar.png'}
                   borderRadius="50%"
                   background="gray"
                   w={isSmallScreen ? '22px' : '28px'}

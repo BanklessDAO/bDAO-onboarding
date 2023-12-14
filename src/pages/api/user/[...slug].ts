@@ -6,7 +6,7 @@ import { createPublicClient, http } from 'viem'
 import { normalize } from 'viem/ens'
 
 import kudosBadges from 'data/badges.json'
-import { ALCHEMY_KEY_BACKEND, COLLECTIBLE_ADDRESSES, LESSONS, MIRROR_ARTICLE_ADDRESSES } from 'constants/index'
+import { ALCHEMY_KEY_BACKEND, COLLECTIBLE_ADDRESSES, DOMAIN_URL, LESSONS, MIRROR_ARTICLE_ADDRESSES } from 'constants/index'
 import { BADGE_ADDRESS, BADGE_IDS, BADGE_API, BADGE_TO_KUDOS_IDS } from 'constants/badges'
 import { TABLE, TABLES, db } from 'utils/db'
 import { UserStatsType, UserType } from 'entities/user'
@@ -34,47 +34,32 @@ async function getBadgeTokensIds(address: string): Promise<number[]> {
   }
 }
 
-async function getDatadisksCollected(address: string): Promise<string[]> {
+async function getUserCollectibles(address: string): Promise<{ datadisks: string[], handbooks: string[] }> {
   try {
     const ownerNFTs = await axios.get(
       `https://opt-mainnet.g.alchemy.com/nft/v2/${ALCHEMY_KEY_BACKEND}/getNFTs?owner=${address}&pageSize=100${COLLECTIBLE_ADDRESSES.map(
         (collectibleAddress) => `&contractAddresses[]=${collectibleAddress}`
-      ).join('')}&withMetadata=false`
-    )
-    const datadisks = []
-    if (ownerNFTs.data) {
-      // console.log(ownerNFTs.data.ownedNfts)
-      for (const nft of ownerNFTs.data.ownedNfts) {
-        const datadisk = (LESSONS.find(lesson => lesson.lessonCollectibleTokenAddress?.toLowerCase() === nft.contract.address?.toLowerCase())).collectibleId || ''
-        if (datadisk) datadisks.push(datadisk)
-      }
-    }
-    return datadisks
-  } catch (error) {
-    console.error(error)
-    return []
-  }
-}
-
-async function getHandbooksCollected(address: string): Promise<string[]> {
-  try {
-    const ownerNFTs = await axios.get(
-      `https://opt-mainnet.g.alchemy.com/nft/v2/${ALCHEMY_KEY_BACKEND}/getNFTs?owner=${address}&pageSize=100${MIRROR_ARTICLE_ADDRESSES.map(
+      ).join('')}${MIRROR_ARTICLE_ADDRESSES.map(
         (articleAddress) => `&contractAddresses[]=${articleAddress}`
       ).join('')}&withMetadata=false`
     )
+    const datadisks = []
     const handbooks = []
     if (ownerNFTs.data) {
       // console.log(ownerNFTs.data.ownedNfts)
       for (const nft of ownerNFTs.data.ownedNfts) {
-        const handbook = (LESSONS.find(lesson => lesson.mirrorNFTAddress?.toLowerCase() === nft.contract.address?.toLowerCase())).collectibleId || ''
+        const datadisk = (LESSONS.find(lesson => lesson.lessonCollectibleTokenAddress?.toLowerCase() === nft.contract.address?.toLowerCase()))?.collectibleId || ''
+        if (datadisk) datadisks.push(datadisk)
+      }
+      for (const nft of ownerNFTs.data.ownedNfts) {
+        const handbook = (LESSONS.find(lesson => lesson.mirrorNFTAddress?.toLowerCase() === nft.contract.address?.toLowerCase()))?.collectibleId || ''
         if (handbook) handbooks.push(handbook)
       }
     }
-    return handbooks
+    return { datadisks, handbooks }
   } catch (error) {
     console.error(error)
-    return []
+    return { datadisks: [], handbooks: [] }
   }
 }
 
@@ -84,37 +69,73 @@ export default async function handler(
 ): Promise<void> {
   const {
     slug: [address],
+    profile,
+    badges,
   } = req.query
   let addressLowerCase = address.toLowerCase()
   // console.log('address', address)
 
-  if (!address) return res.status(400).json({ error: 'Wrong params' })
-  const transport = http(`https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY_BACKEND}`)
-  const client = createPublicClient({
-    chain: mainnet,
-    transport,
-  })
+  const DEFAULT_AVATAR = 'https://app.banklessacademy.com/images/explorer_avatar.png'
 
+  if (!address) return res.status(400).json({ error: 'Wrong params' })
+
+  let userExist = null
   if (address.endsWith('.eth')) {
-    const fullAddress = await client.getEnsAddress({ name: normalize(addressLowerCase) })
-    if (fullAddress) {
-      addressLowerCase = fullAddress.toLowerCase()
+    // check in DB first
+    const [userExist] = await db(TABLES.users)
+      .select(
+        TABLE.users.id,
+        TABLE.users.address,
+        TABLE.users.ens_name,
+        TABLE.users.ens_avatar,
+        TABLE.users.donations,
+        TABLE.users.gitcoin_stamps
+      )
+      .whereILike('ens_name', addressLowerCase)
+    // console.log('userExist1', userExist)
+    if (userExist) {
+      addressLowerCase = userExist.address?.toLowerCase()
     } else {
-      res.status(400).json({ error: 'Wrong params' })
+      const transport = http(`https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY_BACKEND}`)
+      const client = createPublicClient({
+        chain: mainnet,
+        transport,
+      })
+      const fullAddress = await client.getEnsAddress({ name: normalize(addressLowerCase) })
+      if (fullAddress) {
+        addressLowerCase = fullAddress.toLowerCase()
+      } else {
+        res.status(400).json({ error: 'Wrong params' })
+      }
     }
   }
 
-  const [userExist] = await db(TABLES.users)
-    .select(
-      TABLE.users.id,
-      TABLE.users.ens_name,
-      TABLE.users.ens_avatar,
-      TABLE.users.donations,
-      TABLE.users.gitcoin_stamps
-    )
-    .whereILike('address', addressLowerCase)
-  console.log('user', userExist)
-  if (!userExist) res.status(200).json({ error: 'Profile not found.' })
+  if (!userExist) {
+    if (addressLowerCase?.length !== 42) {
+      return res.status(200).json({ error: 'Profile not found.' })
+    }
+    [userExist] = await db(TABLES.users)
+      .select(
+        TABLE.users.id,
+        TABLE.users.ens_name,
+        TABLE.users.ens_avatar,
+        TABLE.users.donations,
+        TABLE.users.gitcoin_stamps
+      )
+      .whereILike('address', addressLowerCase)
+    console.log('user', userExist)
+    if (!userExist) {
+      const emptyUser: UserType = {
+        address: addressLowerCase,
+        ensName: null,
+        avatar: DEFAULT_AVATAR,
+        stats: {},
+        badgeTokenIds: [],
+        kudosTokenIds: [],
+      }
+      return res.status(200).json(emptyUser)
+    }
+  }
 
   const oldBadgeTokenIds = addressLowerCase in kudosBadges ? kudosBadges[addressLowerCase] : []
   console.log(oldBadgeTokenIds)
@@ -126,29 +147,33 @@ export default async function handler(
   const kudosTokenIds = addressLowerCase in kudosBadges ? kudosBadges[addressLowerCase].map(token => BADGE_TO_KUDOS_IDS[token.toString()]).filter(token => token) : []
   console.log(kudosTokenIds)
 
-  const ensName = await client.getEnsName({ address: addressLowerCase as `0x${string}` })
+  if (badges === 'true') {
+    // only return badge details
+    const data = {
+      address: addressLowerCase,
+      badgeTokenIds,
+      kudosTokenIds,
+    }
+
+    return res.status(200).json(data)
+  }
+
+  const ensName = userExist?.ens_name
   // console.log(ensName)
 
-  const DEFAULT_AVATAR = 'https://app.banklessacademy.com/images/default_avatar.png'
+  const avatar = userExist?.ens_avatar || DEFAULT_AVATAR
 
-  const avatar = ensName ? await client.getEnsAvatar({ name: ensName }) : DEFAULT_AVATAR
-
-  if (
-    (ensName && userExist.ens_name !== ensName) ||
-    (avatar && userExist.ens_avatar !== avatar)
-  ) {
-    // update ens_name + ens_avatar in user DB
-    console.log('update ENS details')
-    await db(TABLES.users)
-      .where(TABLE.users.id, userExist.id)
-      .update({ ens_name: ensName, ens_avatar: avatar?.length < 255 && avatar !== DEFAULT_AVATAR ? avatar : null })
+  if (profile === 'true') {
+    // async update ENS (available on next call)
+    axios.get(`${DOMAIN_URL}/api/updateENS/${addressLowerCase}`)
   }
 
   const stats: UserStatsType = {}
+  const { datadisks, handbooks } = await getUserCollectibles(addressLowerCase)
   // datadisks
-  stats.datadisks = await getDatadisksCollected(addressLowerCase)
+  stats.datadisks = datadisks
   // handbooks
-  stats.handbooks = await getHandbooksCollected(addressLowerCase)
+  stats.handbooks = handbooks
   // badges
   stats.badges = badgeTokenIds?.length
   // valid_stamps

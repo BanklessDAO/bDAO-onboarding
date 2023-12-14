@@ -55,7 +55,7 @@ const MintBadge = ({ badgeId }: { badgeId: number }): React.ReactElement => {
     if (address) {
       if (!passportLS.verified) checkPassport()
       axios
-        .get(`/api/user/${address}`)
+        .get(`/api/user/${address}?badges=true`)
         .then(function (userBadges) {
           const badgeAlreadyClaimed: boolean =
             userBadges?.data?.badgeTokenIds.find(
@@ -86,6 +86,7 @@ const MintBadge = ({ badgeId }: { badgeId: number }): React.ReactElement => {
         address,
         badgeId,
         signature: signature,
+        referrer: localStorage.getItem('referrer'),
       }
       setIsMintingInProgress(true)
       toast.closeAll()

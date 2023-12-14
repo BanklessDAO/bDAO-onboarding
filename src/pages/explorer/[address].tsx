@@ -10,7 +10,7 @@ import {
   useClipboard,
   useMediaQuery,
 } from '@chakra-ui/react'
-import { UserPlus } from '@phosphor-icons/react'
+import { CopySimple } from '@phosphor-icons/react'
 import router from 'next/router'
 import { useAccount } from 'wagmi'
 import { t } from 'i18next'
@@ -43,8 +43,10 @@ export async function getServerSideProps({ query }) {
   const random = Math.floor(Math.random() * 100000)
 
   const pageMeta: MetaData = {
-    title: `Explorer ${address}`,
-    description: `${badge ? 'Explorer badge' : 'Explorer profile'}`,
+    title: `${address?.endsWith('.eth') ? address : shortenAddress(address)}`,
+    description: `${
+      badge ? 'Bankless Explorer Badge' : 'Bankless Explorer Profile'
+    }`,
     image: `${DOMAIN_URL}/api/og/social?address=${address}${
       badge ? `&badge=${badge}` : ''
     }&r=${random}`,
@@ -63,7 +65,7 @@ export default function Page({
   preloadError?: string
 }) {
   const profileUrl =
-    typeof window !== 'undefined' ? `${window.location.href}?referral=true` : ''
+    typeof window !== 'undefined' ? `${window.location.href}` : ''
   const [isSmallScreen] = useMediaQuery(['(max-width: 981px)'])
   const { referral } = router.query
   const [user, setUser] = useState<UserType | null>(null)
@@ -72,26 +74,43 @@ export default function Page({
   const { address } = useAccount()
   const { onCopy, hasCopied } = useClipboard(profileUrl)
 
+  const wallets = localStorage.getItem('wallets')
+    ? JSON.parse(localStorage.getItem('wallets'))
+    : []
+
+  const isMyProfile =
+    fullProfileAddress !== '' && wallets.includes(fullProfileAddress)
+
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const res = await fetch(`/api/user/${profileAddress}`)
+        const res = await fetch(`/api/user/${profileAddress}?profile=true`)
         if (!res.ok) setError('Failed to fetch user data.')
         const user: UserType = await res.json()
         if (user?.error) {
           setError(user?.error)
         } else if (user) {
+          console.log(user)
+          if (
+            typeof window !== 'undefined' &&
+            wallets.includes(user.address) &&
+            referral !== 'true'
+          ) {
+            const redirect = `/explorer/${profileAddress}?referral=true`
+            window.history.replaceState(null, null, redirect)
+          }
           setFullProfileAddress(user.address)
           setUser(user)
-          console.log(user)
         }
       } catch (error) {
         console.log(error)
-        setError('Failed to fetch user data from API.')
+        setError(
+          'Failed to fetch user data from API. Please refresh the page manually.'
+        )
       }
     }
     loadUser()
-  }, [])
+  }, [profileAddress])
 
   const collectibles = []
   for (let i = 0; i < user?.stats.datadisks?.length; i++) {
@@ -101,31 +120,24 @@ export default function Page({
     collectibles.push(user?.stats.handbooks[i])
   }
 
-  const share = `Checkout my @BanklessAcademy Explorer profile ${
-    typeof window !== 'undefined' && window.location.href
-  }?referral=true`
+  const share = `Check out my Bankless Explorer Score, and track my journey at @BanklessAcademy.
+${typeof window !== 'undefined' && window.location.href}
+Join me! Discover the knowledge and tools to #OwnYourFuture 👨🏻‍🚀🚀`
   const twitterLink = `https://twitter.com/intent/tweet?url=${encodeURIComponent(
     share
   )}`
 
-  const wallets = localStorage.getItem('wallets')
-    ? JSON.parse(localStorage.getItem('wallets'))
-    : []
-
-  const isMyProfile =
-    fullProfileAddress !== '' && wallets.includes(fullProfileAddress)
-
   if (
     referral === 'true' &&
     !isMyProfile &&
-    !localStorage.getItem('referral')?.length &&
+    !localStorage.getItem('referrer')?.length &&
     fullProfileAddress
   ) {
-    console.log('referral', localStorage.getItem('referral'))
-    localStorage.setItem('referral', fullProfileAddress?.toLowerCase())
+    console.log('referrer', localStorage.getItem('referrer'))
+    localStorage.setItem('referrer', fullProfileAddress?.toLowerCase())
   }
-  if (address && localStorage.getItem('referral') === address?.toLowerCase()) {
-    localStorage.setItem('referral', '')
+  if (address && localStorage.getItem('referrer') === address?.toLowerCase()) {
+    localStorage.setItem('referrer', '')
   }
 
   if (user)
@@ -159,7 +171,11 @@ export default function Page({
             mt="40px"
             mb="8"
           >
-            {user.ensName || shortenAddress(profileAddress)}
+            {user.ensName?.endsWith('.eth')
+              ? user.ensName
+              : profileAddress?.endsWith('.eth')
+              ? profileAddress
+              : shortenAddress(profileAddress)}
           </Text>
           {isMyProfile && (
             <Box justifyContent="center" w="256px" m="auto" mb="8">
@@ -171,7 +187,7 @@ export default function Page({
                     borderBottomRadius="0"
                     leftIcon={<Image width="24px" src="/images/TwitterX.svg" />}
                   >
-                    {t('Share on Twitter')}
+                    {t('Share on Twitter / X')}
                   </Button>
                 </ExternalLink>
               </Box>
@@ -179,25 +195,25 @@ export default function Page({
                 variant="primary"
                 w="100%"
                 borderTopRadius="0"
-                leftIcon={<UserPlus size="30px" />}
+                leftIcon={<CopySimple size="30px" />}
                 onClick={() => onCopy()}
               >
-                {hasCopied ? t('Referal link copied') : t('Refer-a-Friend')}
+                {hasCopied ? t('Profile Link Copied') : t('Copy Profile Link')}
               </Button>
             </Box>
           )}
         </Card>
         <Card my="8" borderRadius="2xl !important">
           <Box m="auto" maxW={isSmallScreen ? '600px' : '100%'}>
-            <Box m="auto" position="relative" w="300px">
-              <Image w="300px" src="/images/bankless-score.png" />
+            <Box m="auto" position="relative" w="300px" mt={4}>
+              <Image w="300px" src="/images/explorer-score.png" />
               <Box
                 position="absolute"
-                top="55px"
+                top="52.9px"
                 width="72px"
                 textAlign="center"
                 left="212px"
-                fontSize="5xl"
+                fontSize="4xl"
                 fontWeight="bold"
               >
                 {user.stats.score || 0}
@@ -213,7 +229,7 @@ export default function Page({
                   score={user.stats.badges || 0}
                   max={MAX_BADGES}
                   description={t(
-                    `Each lesson badges is going to increase your Bankless Explorer score by 1 point.`
+                    `Each lesson badge increases your score by 1 point.`
                   )}
                 />
                 <Badges
@@ -232,7 +248,7 @@ export default function Page({
                   }
                   max={MAX_COLLECTIBLES}
                   description={t(
-                    `1 DATADISK will get you 3 points and 1 HANDBOOK is equivalent to 1 point.`
+                    `Each Handbook increases your score by 1 point, and each DataDisk increases it by 3.`
                   )}
                 />
                 <Badges
@@ -260,11 +276,11 @@ export default function Page({
                   }
                   max={MAX_DONATIONS}
                   description={t(
-                    `Each time you donate to Bankless Academy via Gitcoin, you increase your score by 1 point. Donation score are only updated after the end of a round.`
+                    `Each round you donate to Bankless Academy on Gitcoin increases your score by 1 point. Points are updated at the end of a round.`
                   )}
                 />
                 <Badges
-                  badges={Object.keys(user.stats?.donations)}
+                  badges={Object.keys(user.stats?.donations || {})}
                   type="donations"
                   isMyProfile={isMyProfile}
                 />
@@ -272,14 +288,14 @@ export default function Page({
               <Box w={isSmallScreen ? '100%' : '50%'}>
                 <ProgressTitle
                   title={t('Stamps')}
-                  score={user.stats?.valid_stamps?.length}
+                  score={user.stats?.valid_stamps?.length || 0}
                   max={MAX_STAMPS}
                   description={t(
-                    `Each Gitcoin Passport stamp is going to increase you Bankless Explorer score by 1 point.`
+                    `Each stamp you collect on Gitcoin Passport increases your score by 1 point.`
                   )}
                 />
                 <Badges
-                  badges={user.stats?.valid_stamps}
+                  badges={user.stats?.valid_stamps || []}
                   type="stamps"
                   isMyProfile={address && isMyProfile}
                 />

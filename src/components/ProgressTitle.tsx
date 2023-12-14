@@ -25,6 +25,7 @@ const ProgressTitle = ({
       justifyContent="flex-end"
       pb="4"
       mb="8"
+      mt="6"
     >
       <Box mr="4" my="4px">
         {score}
@@ -32,7 +33,7 @@ const ProgressTitle = ({
       <Box
         width={`${(score / max) * 200}px`}
         borderLeftRadius="2px"
-        background="linear-gradient(223deg, #3a355a 16.65%, #634c70 95.78%)"
+        background="linear-gradient(135.91deg, #634c70 29.97%, #3a355a 99.26%)"
         my="4px"
       />
       <Box display="flex" height="50px" borderRight="1px #989898 solid" />
@@ -58,7 +59,7 @@ const ProgressTitle = ({
         isProfile={true}
         definition={
           <>
-            <Box>{description}</Box>
+            <Box mb="4">{description}</Box>
           </>
         }
       />
